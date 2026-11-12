@@ -2,10 +2,13 @@ package es.academia.campushub.service;
 
 import es.academia.campushub.controller.dto.*;
 import es.academia.campushub.entity.Departamento;
+import es.academia.campushub.entity.Docente;
+import es.academia.campushub.entity.Grupo;
 import es.academia.campushub.mapper.PersonasMapper;
 import es.academia.campushub.repository.*;
 import es.academia.campushub.util.Parseo;
 import es.academia.campushub.util.exception.BusinessConflictException;
+import es.academia.campushub.util.exception.InvalidInputException;
 import es.academia.campushub.util.exception.PersistenciaPendienteException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
@@ -61,7 +64,26 @@ public class PersonasService {
     // TODO(A) 2. departamentos.findById(r.departamentoId()) -> 404 si no existe
     // TODO(A) 3. docentes.existsByEmail(email) -> 409
     // TODO(A) 4. Crear Docente, guardar y devolver PersonasMapper.toResponse(...)
-    throw new PersistenciaPendienteException("crearDocente");
+    if (r == null || r.departamentoId() == null) {
+      throw new InvalidInputException("departamentoId es obligatorio");
+    }
+    String nombre = Parseo.texto(r.nombre(), "nombre");
+    String apellidos = Parseo.texto(r.apellidos(), "apellidos");
+    String email = Parseo.texto(r.email(), "email");
+    Departamento departamento =
+            departamentos
+                    .findById(r.departamentoId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Departamento " + r.departamentoId() + " no existe"));
+    if (docentes.existsByEmail(email)) {
+      throw new BusinessConflictException("Ya existe un docente con ese correo");
+    }
+    Docente d = new Docente();
+    d.setNombre(nombre);
+    d.setApellidos(apellidos);
+    d.setEmail(email);
+    d.setDepartamento(departamento);
+    return PersonasMapper.toResponse(docentes.save(d));
   }
 
   @Transactional
@@ -69,8 +91,23 @@ public class PersonasService {
     // TODO(A) 1. Validar nombre y nivel -> 400
     // TODO(A) 2. docentes.findById(r.tutorDocenteId()) -> 404 si no existe
     // TODO(A) 3. Guardar y devolver el mapper
-    throw new PersistenciaPendienteException("crearGrupo");
+    if (r == null || r.tutorDocenteId() == null) {
+      throw new PersistenciaPendienteException("crearGrupo");
   }
+    String nombre = Parseo.texto(r.nombre(), "nombre");
+    String nivel = Parseo.texto(r.nivel(), "nivel");
+    Docente tutor =
+            docentes
+                    .findById(r.tutorDocenteId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Docente " + r.tutorDocenteId() + " no existe"));
+    Grupo g = new Grupo();
+    g.setNombre(nombre);
+    g.setNivel(nivel);
+    g.setTutor(tutor);
+    return PersonasMapper.toResponse(grupos.save(g));
+  }
+
 
   @Transactional
   public EstudianteResponse crearEstudiante(CreateEstudianteRequest r) {

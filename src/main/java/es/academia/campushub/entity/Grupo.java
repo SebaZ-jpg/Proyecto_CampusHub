@@ -17,8 +17,11 @@ public class Grupo {
 
   // TODO(A): nombre y nivel obligatorios con longitud máxima.
   //   ¿Debe ser único el nombre del grupo? Decidid y justificadlo (la rúbrica no lo exige).
+  //resulto:
+  @Column(nullable = false, length = 50)
   private String nombre;
 
+  @Column(nullable = false, length = 50)
   private String nivel;
 
   // TODO(A): decidid si el tutor es obligatorio (la rúbrica dice que cada grupo "dispone de" docente tutor).
