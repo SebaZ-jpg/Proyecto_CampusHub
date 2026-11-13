@@ -3,6 +3,7 @@ package es.academia.campushub.service;
 import es.academia.campushub.controller.dto.*;
 import es.academia.campushub.entity.Departamento;
 import es.academia.campushub.entity.Docente;
+import es.academia.campushub.entity.Estudiante;
 import es.academia.campushub.entity.Grupo;
 import es.academia.campushub.mapper.PersonasMapper;
 import es.academia.campushub.repository.*;
@@ -13,6 +14,8 @@ import es.academia.campushub.util.exception.PersistenciaPendienteException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 /** PERSONA A: departamentos, docentes, grupos, estudiantes y ficha de contacto (RF01, RF02, RF09). */
 @Service
@@ -116,14 +119,44 @@ public class PersonasService {
     // TODO(A) 3. grupos.findById(r.grupoId()) -> 404 si no existe
     // TODO(A) 4. estudiantes.existsByEmail(email) -> 409
     // TODO(A) 5. Guardar y devolver el mapper
+    if (r == null || r.grupoId() == null) {
+      throw new InvalidInputException("grupoId es obligatorio");
+    }
+    String nombre = Parseo.texto(r.nombre(), "nombre");
+    String apellidos = Parseo.texto(r.apellidos(), "apellidos");
+    String email = Parseo.texto(r.email(), "email");
+    LocalDate nacimiento = Parseo.fecha(r.fechaNacimiento(), "fechaNacimiento");
+    if (!nacimiento.isBefore(LocalDate.now())) {
     throw new PersistenciaPendienteException("crearEstudiante");
+    }
+    Grupo grupo =
+            grupos
+                    .findById(r.grupoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Grupo " + r.grupoId() + " no existe"));
+    if (estudiantes.existsByEmail(email)) {
+      throw new BusinessConflictException("Ya existe un estudiante con ese correo");
+    }
+    Estudiante e = new Estudiante();
+    e.setNombre(nombre);
+    e.setApellidos(apellidos);
+    e.setEmail(email);
+    e.setFechaNacimiento(nacimiento);
+    e.setGrupo(grupo);
+    return PersonasMapper.toResponse(estudiantes.save(e));
   }
+
+
 
   @Transactional(readOnly = true)
   public EstudianteResponse obtenerEstudiante(Long id) {
     // TODO(A) estudiantes.findById(id) -> 404 si no existe; mapper
-    throw new PersistenciaPendienteException("obtenerEstudiante");
+    return estudiantes
+            .findById(id)
+            .map(PersonasMapper::toResponse)
+            .orElseThrow(() -> new ResourceNotFoundException("Estudiante " + id + " no existe"));
   }
+    //throw new PersistenciaPendienteException("obtenerEstudiante");
+
 
   @Transactional
   public ContactoResponse guardarContacto(Long estudianteId, UpsertContactoRequest r) {
