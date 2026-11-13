@@ -24,13 +24,16 @@ public class ContactoEstudiante {
   private Estudiante estudiante;
 
   // TODO(A): longitudes máximas; tutorLegal y telefono obligatorios (decidid el resto).
-  @Column(name = "tutor_legal")
+  @Column(name = "tutor_legal", nullable = false, length = 150)
   private String tutorLegal;
 
+  @Column(nullable = false, length = 20)
   private String telefono;
 
+  @Column(length = 254)
   private String email;
 
+  @Column(nullable = false)
   private Boolean autorizado;
 
   @Column(name = "fecha_autorizacion")

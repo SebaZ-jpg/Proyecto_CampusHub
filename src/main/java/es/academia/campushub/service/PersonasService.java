@@ -1,10 +1,7 @@
 package es.academia.campushub.service;
 
 import es.academia.campushub.controller.dto.*;
-import es.academia.campushub.entity.Departamento;
-import es.academia.campushub.entity.Docente;
-import es.academia.campushub.entity.Estudiante;
-import es.academia.campushub.entity.Grupo;
+import es.academia.campushub.entity.*;
 import es.academia.campushub.mapper.PersonasMapper;
 import es.academia.campushub.repository.*;
 import es.academia.campushub.util.Parseo;
@@ -164,12 +161,44 @@ public class PersonasService {
     // TODO(A) 2. contactos.findByEstudianteId(...) -> si existe se ACTUALIZA, si no se crea (upsert)
     // TODO(A) 3. Validar tutorLegal/telefono y Parseo.fechaOpcional(r.fechaAutorizacion(), ...)
     // TODO(A) 4. Guardar y devolver el mapper (nunca debe quedar una segunda ficha)
-    throw new PersistenciaPendienteException("guardarContacto");
+    //throw new PersistenciaPendienteException("guardarContacto");
+    if (r == null) {
+      throw new InvalidInputException("Cuerpo obligatorio");
+    }
+    Estudiante estudiante =
+            estudiantes
+                    .findById(estudianteId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Estudiante " + estudianteId + " no existe"));
+    String tutor = Parseo.texto(r.tutorLegal(), "tutorLegal");
+    String telefono = Parseo.texto(r.telefono(), "telefono");
+    LocalDate fechaAutorizacion = Parseo.fechaOpcional(r.fechaAutorizacion(), "fechaAutorizacion");
+    ContactoEstudiante c =
+            contactos
+                    .findByEstudianteId(estudianteId)
+                    .orElseGet(
+                            () -> {
+                              ContactoEstudiante nuevo = new ContactoEstudiante();
+                              nuevo.setEstudiante(estudiante);
+                              return nuevo;
+                            });
+    c.setTutorLegal(tutor);
+    c.setTelefono(telefono);
+    c.setEmail(r.email());
+    c.setAutorizado(Boolean.TRUE.equals(r.autorizado()));
+    c.setFechaAutorizacion(fechaAutorizacion);
+    return PersonasMapper.toResponse(contactos.save(c));
   }
 
   @Transactional(readOnly = true)
   public ContactoResponse contacto(Long estudianteId) {
     // TODO(A) 404 si el estudiante no existe O si no tiene ficha
-    throw new PersistenciaPendienteException("contacto");
+    if (!estudiantes.existsById(estudianteId)) {
+      throw new ResourceNotFoundException("Estudiante " + estudianteId + " no existe");
+    }
+    return contactos
+            .findByEstudianteId(estudianteId)
+            .map(PersonasMapper::toResponse)
+            .orElseThrow(
+                    () -> new ResourceNotFoundException("El estudiante " + estudianteId + " no tiene ficha"));
   }
 }
