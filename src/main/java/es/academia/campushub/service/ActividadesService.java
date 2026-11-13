@@ -1,9 +1,16 @@
 package es.academia.campushub.service;
 
 import es.academia.campushub.controller.dto.*;
+import es.academia.campushub.entity.Actividad;
+import es.academia.campushub.entity.Docente;
+import es.academia.campushub.entity.Estudiante;
+import es.academia.campushub.entity.Etiqueta;
+import es.academia.campushub.entity.Inscripcion;
 import es.academia.campushub.mapper.ActividadesMapper;
+import es.academia.campushub.mapper.PersonasMapper;
 import es.academia.campushub.repository.*;
-import es.academia.campushub.util.exception.PersistenciaPendienteException;
+import es.academia.campushub.util.exception.BusinessConflictException;
+import es.academia.campushub.util.exception.InvalidInputException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -19,11 +26,11 @@ public class ActividadesService {
   private final EstudianteRepository estudiantes; // repositorio de A: solo lectura (findById)
 
   public ActividadesService(
-      ActividadRepository actividades,
-      InscripcionRepository inscripciones,
-      EtiquetaRepository etiquetas,
-      DocenteRepository docentes,
-      EstudianteRepository estudiantes) {
+          ActividadRepository actividades,
+          InscripcionRepository inscripciones,
+          EtiquetaRepository etiquetas,
+          DocenteRepository docentes,
+          EstudianteRepository estudiantes) {
     this.actividades = actividades;
     this.inscripciones = inscripciones;
     this.etiquetas = etiquetas;
@@ -33,86 +40,159 @@ public class ActividadesService {
 
   @Transactional
   public ActividadResponse crearActividad(CreateActividadRequest r) {
-    // TODO(B) 1. Validar título, descripción, tipo (TALLER/CHARLA/VISITA/JORNADA) -> 400
-    // TODO(B) 2. Fecha con Parseo.fecha(r.fechaPrevista(), "fechaPrevista")
-    // TODO(B) 3. maxParticipantes > 0 -> 400 (y CHECK en la BD)
-    // TODO(B) 4. docentes.findById(r.docenteId()) -> 404 si no existe
-    // TODO(B) 5. Guardar y devolver ActividadesMapper.toResponse(...)
-    throw new PersistenciaPendienteException("crearActividad");
+    if (r.titulo() == null || r.titulo().isBlank()) {
+      throw new InvalidInputException("El título es obligatorio");
+    }
+    if (r.descripcion() == null || r.descripcion().isBlank()) {
+      throw new InvalidInputException("La descripción es obligatoria");
+    }
+
+    Actividad.TipoActividad tipoActividad;
+    try {
+      tipoActividad = Actividad.TipoActividad.valueOf(r.tipo());
+    } catch (IllegalArgumentException | NullPointerException e) {
+      throw new InvalidInputException(
+              "Tipo de actividad inválido. Debe ser TALLER, CHARLA, VISITA o JORNADA");
+    }
+
+    if (r.maxParticipantes() == null || r.maxParticipantes() <= 0) {
+      throw new InvalidInputException("maxParticipantes debe ser > 0");
+    }
+
+    Docente docente =
+            docentes.findById(r.docenteId()).orElseThrow(() -> noExiste("Docente", r.docenteId()));
+
+    Actividad actividad = new Actividad();
+    actividad.setTitulo(r.titulo().trim());
+    actividad.setDescripcion(r.descripcion().trim());
+    actividad.setTipo(tipoActividad);
+    actividad.setFechaPrevista(
+            es.academia.campushub.util.Parseo.fecha(r.fechaPrevista(), "fechaPrevista"));
+    actividad.setMaxParticipantes(r.maxParticipantes());
+    actividad.setDocente(docente);
+
+    return ActividadesMapper.toResponse(actividades.save(actividad));
   }
 
   @Transactional(readOnly = true)
   public ActividadResponse obtenerActividad(Long id) {
-    // TODO(B) actividades.findById(id) -> 404 si no existe (lo usa también C en el detalle)
-    throw new PersistenciaPendienteException("obtenerActividad");
+    Actividad actividad = actividades.findById(id).orElseThrow(() -> noExiste("Actividad", id));
+    return ActividadesMapper.toResponse(actividad);
   }
 
   /** Pieza más delicada del proyecto: aforo + duplicados + concurrencia. */
   @Transactional
   public InscripcionResponse inscribir(Long actividadId, CreateInscripcionRequest r) {
-    // TODO(B) 1. actividades.findByIdForUpdate(actividadId) -> 404 (bloquea la fila de la actividad)
-    // TODO(B) 2. estudiantes.findById(r.estudianteId()) -> 404 si no existe
-    // TODO(B) 3. inscripciones.existsByActividadIdAndEstudianteId(...) -> 409 (duplicada)
-    // TODO(B) 4. inscripciones.countByActividadId(...) >= maxParticipantes -> 409 (sin plazas)
-    // TODO(B) 5. Crear Inscripcion con LocalDateTime.now(), inscripciones.saveAndFlush(...)
-    // TODO(B) 6. Devolver ActividadesMapper.toResponse(...)
-    // Nota: el UNIQUE(actividad, estudiante) de la BD es la red de seguridad si el paso 3 falla.
-    throw new PersistenciaPendienteException("inscribir");
+    // 1. Bloqueo pesimista de la actividad (FOR UPDATE)
+    Actividad actividad = actividades.findByIdForUpdate(actividadId)
+            .orElseThrow(() -> noExiste("Actividad", actividadId));
+
+    // 2. Comprobar que el estudiante existe
+    Estudiante estudiante = estudiantes.findById(r.estudianteId())
+            .orElseThrow(() -> noExiste("Estudiante", r.estudianteId()));
+
+    // 3. Comprobar si ya está inscrito
+    if (inscripciones.existsByActividadIdAndEstudianteId(actividadId, r.estudianteId())) {
+      throw new BusinessConflictException("El estudiante ya está inscrito en esta actividad");
+    }
+
+    // 4. Comprobar aforo máximo con la fila bloqueada
+    long ocupadas = inscripciones.countByActividadId(actividadId);
+    if (ocupadas >= actividad.getMaxParticipantes()) {
+      throw new BusinessConflictException("La actividad ha alcanzado el aforo máximo");
+    }
+
+    // 5. Crear inscripción y forzar flush para validar integridad inmediata
+    Inscripcion inscripcion = new Inscripcion();
+    inscripcion.setActividad(actividad);
+    inscripcion.setEstudiante(estudiante);
+    inscripcion.setFechaInscripcion(java.time.LocalDateTime.now());
+
+    inscripcion = inscripciones.saveAndFlush(inscripcion);
+
+    return ActividadesMapper.toResponse(inscripcion);
   }
 
   @Transactional(readOnly = true)
   public List<EstudianteResponse> participantes(Long actividadId) {
-    // TODO(B) 404 si la actividad no existe; inscripciones.findByActividadId(...) y mapear cada
-    //         i.getEstudiante() con PersonasMapper.toResponse (mapper de A)
-    throw new PersistenciaPendienteException("participantes");
+    if (!actividades.existsById(actividadId)) {
+      throw noExiste("Actividad", actividadId);
+    }
+    return inscripciones.findByActividadId(actividadId).stream()
+            .map(i -> PersonasMapper.toResponse(i.getEstudiante()))
+            .toList();
   }
 
   @Transactional(readOnly = true)
   public List<ActividadHistorialResponse> historial(Long estudianteId) {
-    // TODO(B) 404 si el estudiante no existe; inscripciones.findByEstudianteId(...) y
-    //         ActividadesMapper.toHistorial(...). Si no tiene actividades: lista vacía.
-    throw new PersistenciaPendienteException("historial");
+    if (!estudiantes.existsById(estudianteId)) {
+      throw noExiste("Estudiante", estudianteId);
+    }
+    return inscripciones.findByEstudianteId(estudianteId).stream()
+            .map(ActividadesMapper::toHistorial)
+            .toList();
   }
 
   @Transactional
   public EtiquetaResponse crearEtiqueta(CreateEtiquetaRequest r) {
-    // TODO(B) validar nombre -> 400; etiquetas.existsByNombre(...) -> 409; guardar; mapper
-    throw new PersistenciaPendienteException("crearEtiqueta");
+    if (r.nombre() == null || r.nombre().isBlank()) {
+      throw new InvalidInputException("El nombre de la etiqueta es obligatorio");
+    }
+    String nombreLimpio = r.nombre().trim();
+
+    if (etiquetas.existsByNombre(nombreLimpio)) {
+      throw new BusinessConflictException("La etiqueta ya existe");
+    }
+
+    Etiqueta etiqueta = new Etiqueta();
+    etiqueta.setNombre(nombreLimpio);
+    return ActividadesMapper.toResponse(etiquetas.save(etiqueta));
   }
 
   @Transactional
   public void asociarEtiqueta(Long actividadId, Long etiquetaId) {
-    // TODO(B) 404 si no existe la actividad o la etiqueta. actividad.getEtiquetas().add(etiqueta).
-    //         Al ser un Set (y PK compuesta en la tabla intermedia), repetirlo NO duplica y el
-    //         endpoint sigue devolviendo 204.
-    throw new PersistenciaPendienteException("asociarEtiqueta");
+    Actividad actividad = actividades.findById(actividadId)
+            .orElseThrow(() -> noExiste("Actividad", actividadId));
+    Etiqueta etiqueta = etiquetas.findById(etiquetaId)
+            .orElseThrow(() -> noExiste("Etiqueta", etiquetaId));
+
+    actividad.getEtiquetas().add(etiqueta);
   }
 
   @Transactional(readOnly = true)
   public List<ActividadResponse> actividadesPorEtiqueta(Long etiquetaId) {
-    // TODO(B) 404 si la etiqueta no existe; actividades.findByEtiquetasId(etiquetaId); mapper
-    throw new PersistenciaPendienteException("actividadesPorEtiqueta");
+    if (!etiquetas.existsById(etiquetaId)) {
+      throw noExiste("Etiqueta", etiquetaId);
+    }
+    return actividades.findByEtiquetasId(etiquetaId).stream()
+            .map(ActividadesMapper::toResponse)
+            .toList();
   }
 
   // ===================== CONTRATO CON LA PERSONA C (no cambiar firmas) =====================
 
-  /** Nº de plazas ocupadas de una actividad. */
   @Transactional(readOnly = true)
   public int plazasOcupadas(Long actividadId) {
     return (int) inscripciones.countByActividadId(actividadId);
   }
 
-  /** Etiquetas de una actividad (lista vacía si no tiene). 404 si la actividad no existe. */
   @Transactional(readOnly = true)
   public List<EtiquetaResponse> etiquetasDe(Long actividadId) {
-    // TODO(B) actividades.findById(...) o 404; mapear actividad.getEtiquetas() con
-    //         ActividadesMapper.toResponse(...)
-    throw new PersistenciaPendienteException("etiquetasDe");
+    Actividad actividad = actividades.findById(actividadId)
+            .orElseThrow(() -> noExiste("Actividad", actividadId));
+
+    return actividad.getEtiquetas().stream()
+            .map(ActividadesMapper::toResponse)
+            .toList();
   }
 
-  // Referencia útil para el 404 uniforme:
   @SuppressWarnings("unused")
   private ResourceNotFoundException noExiste(String que, Long id) {
     return new ResourceNotFoundException(que + " " + id + " no existe");
   }
 }
+
+//Decisiones Técnicas - Persona B (Actividades, Inscripciones, Etiquetas)
+//Se han implementado restricciones nativas en PostgreSQL para garantizar la integridad por debajo de la capa Java. En la tabla actividad, se ha añadido un @Check para evitar aforos nulos o negativos, y se ha mapeado el TipoActividad como EnumType.STRING para evitar inconsistencias de texto. La descripción usa columnDefinition = "text" superando el límite de VARCHAR.
+//Para etiqueta, se usa UNIQUE(nombre) evitando duplicados físicos en la relación N:M. En inscripcion, la red de seguridad principal es un UNIQUE(actividad_id, estudiante_id) respaldado por un índice sobre estudiante_id para optimizar el historial.
+//El problema de concurrencia en la inscripción (condición de carrera al comprobar el aforo) se ha resuelto aplicando un bloqueo pesimista en base de datos mediante findByIdForUpdate (ejecuta SELECT ... FOR UPDATE). Esto serializa las transacciones simultáneas para una misma actividad, impidiendo sobrepasar el límite de plazas sin introducir bloqueos globales en la aplicación, y rematando con un saveAndFlush para validar la inserción inmediatamente.

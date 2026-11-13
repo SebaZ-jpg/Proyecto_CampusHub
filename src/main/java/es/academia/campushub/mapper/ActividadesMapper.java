@@ -9,21 +9,21 @@ public final class ActividadesMapper {
 
   public static ActividadResponse toResponse(Actividad a) {
     return new ActividadResponse(
-        a.getId(),
-        a.getTitulo(),
-        a.getDescripcion(),
-        a.getTipo(),
-        a.getFechaPrevista().toString(),
-        a.getMaxParticipantes(),
-        a.getDocente().getId());
+            a.getId(),
+            a.getTitulo(),
+            a.getDescripcion(),
+            a.getTipo().name(), // <-- FIX: Extraemos el String del Enum
+            a.getFechaPrevista().toString(),
+            a.getMaxParticipantes(),
+            a.getDocente().getId());
   }
 
   public static InscripcionResponse toResponse(Inscripcion i) {
     return new InscripcionResponse(
-        i.getId(),
-        i.getActividad().getId(),
-        i.getEstudiante().getId(),
-        i.getFechaInscripcion().toString());
+            i.getId(),
+            i.getActividad().getId(),
+            i.getEstudiante().getId(),
+            i.getFechaInscripcion().toString());
   }
 
   public static EtiquetaResponse toResponse(Etiqueta e) {
@@ -33,11 +33,11 @@ public final class ActividadesMapper {
   public static ActividadHistorialResponse toHistorial(Inscripcion i) {
     Actividad a = i.getActividad();
     return new ActividadHistorialResponse(
-        a.getId(),
-        a.getTitulo(),
-        a.getTipo(),
-        a.getFechaPrevista().toString(),
-        i.getFechaInscripcion().toString(),
-        PersonasMapper.toResponse(a.getDocente()));
+            a.getId(),
+            a.getTitulo(),
+            a.getTipo().name(), // <-- FIX: Extraemos el String del Enum
+            a.getFechaPrevista().toString(),
+            i.getFechaInscripcion().toString(),
+            PersonasMapper.toResponse(a.getDocente()));
   }
 }
