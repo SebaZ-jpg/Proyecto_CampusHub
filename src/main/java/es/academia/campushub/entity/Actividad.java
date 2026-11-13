@@ -8,9 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// TODO(B): capacidad máxima > 0 también en la BD. Con Hibernate:
-//   @org.hibernate.annotations.Check(constraints = "max_participantes > 0")
-// (con ddl-auto=update solo se aplica al CREAR la tabla: usad "docker compose down -v" para probar).
+@org.hibernate.annotations.Check(constraints = "max_participantes > 0")
 @Entity
 @Table(name = "actividad")
 @Getter
@@ -21,33 +19,50 @@ public class Actividad {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  // TODO(B): obligatorio, longitud máxima razonada.
+  @Column(nullable = false, length = 150)
   private String titulo;
 
-  // TODO(B): texto largo. Pista: @Column(columnDefinition = "text"). Evitad @Lob con PostgreSQL.
+  @Column(columnDefinition = "text", nullable = false)
   private String descripcion;
 
-  // TODO(B): TALLER, CHARLA, VISITA o JORNADA (los tests usan estos valores). Podéis dejarlo como
-  // String y validarlo en el servicio (400), o usar un enum con @Enumerated(EnumType.STRING).
-  // Decidid y justificad. Añadid también un CHECK si lo dejáis como String.
-  private String tipo;
+  public enum TipoActividad {
+    TALLER,
+    CHARLA,
+    VISITA,
+    JORNADA
+  }
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private TipoActividad tipo;
 
   @Column(name = "fecha_prevista")
   private LocalDate fechaPrevista;
 
-  @Column(name = "max_participantes")
+  @Column(name = "max_participantes", nullable = false)
   private Integer maxParticipantes;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "docente_id", nullable = false)
   private Docente docente;
 
-  // Relación N:M con Etiqueta. Un Set evita duplicados; la tabla intermedia tiene clave
-  // primaria compuesta (actividad_id, etiqueta_id), que es la protección real en la BD.
   @ManyToMany
   @JoinTable(
-      name = "actividad_etiqueta",
-      joinColumns = @JoinColumn(name = "actividad_id"),
-      inverseJoinColumns = @JoinColumn(name = "etiqueta_id"))
+          name = "actividad_etiqueta",
+          joinColumns = @JoinColumn(name = "actividad_id"),
+          inverseJoinColumns = @JoinColumn(name = "etiqueta_id"))
   private Set<Etiqueta> etiquetas = new HashSet<>();
 }
+// Restricción de aforo (RF03): Hemos aplicado @org.hibernate.annotations.Check(constraints =
+// "max_participantes > 0") a nivel de clase.
+// Esto garantiza en el motor de base de datos que ninguna vía (ni siquiera inserciones manuales en
+// SQL) pueda crear actividades con aforo cero o negativo.
+
+// Textos y longitudes: título se ha limitado a 150 caracteres, mientras que para descripción hemos
+// usado columnDefinition = "text" para saltarnos el límite de 255 de los VARCHAR tradicionales,
+// descartando @Lob porque en PostgreSQL el tipo nativo text es más eficiente y fácil de consultar.
+
+// Tipo de Actividad: Aunque se podía dejar como String y validarlo a mano, hemos optado por crear
+// el enumerado interno TipoActividad y mapearlo a la BD con @Enumerated(EnumType.STRING).
+// Motivo: Garantiza la seguridad de tipos en Java y MapStruct hace la conversión automática a
+// String en los DTOs sin tener que tocar nada más.
