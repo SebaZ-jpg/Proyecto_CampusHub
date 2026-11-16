@@ -6,7 +6,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "etiqueta")
+@Table(
+    name = "etiqueta",
+    uniqueConstraints =
+        @UniqueConstraint(name = "uk_etiqueta_nombre", columnNames = "nombre"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,7 +18,7 @@ public class Etiqueta {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(nullable = false, unique = true, length = 50)
+  @Column(nullable = false, length = 50)
   private String nombre;
 }
 

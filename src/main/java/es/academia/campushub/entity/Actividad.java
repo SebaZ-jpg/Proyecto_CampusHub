@@ -8,9 +8,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@org.hibernate.annotations.Check(constraints = "max_participantes > 0")
+@org.hibernate.annotations.Check(
+    name = "ck_actividad_tipo_y_aforo",
+    constraints =
+        "max_participantes > 0 AND tipo IN ('TALLER', 'CHARLA', 'VISITA', 'JORNADA')")
 @Entity
-@Table(name = "actividad")
+@Table(
+    name = "actividad",
+    indexes = @Index(name = "idx_actividad_docente", columnList = "docente_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,7 +41,7 @@ public class Actividad {
   @Column(nullable = false, length = 20)
   private TipoActividad tipo;
 
-  @Column(name = "fecha_prevista")
+  @Column(name = "fecha_prevista", nullable = false)
   private LocalDate fechaPrevista;
 
   @Column(name = "max_participantes", nullable = false)
@@ -46,11 +51,16 @@ public class Actividad {
   @JoinColumn(name = "docente_id", nullable = false)
   private Docente docente;
 
-  @ManyToMany
+  @ManyToMany(fetch = FetchType.LAZY)
   @JoinTable(
-          name = "actividad_etiqueta",
-          joinColumns = @JoinColumn(name = "actividad_id"),
-          inverseJoinColumns = @JoinColumn(name = "etiqueta_id"))
+      name = "actividad_etiqueta",
+      joinColumns = @JoinColumn(name = "actividad_id", nullable = false),
+      inverseJoinColumns = @JoinColumn(name = "etiqueta_id", nullable = false),
+      uniqueConstraints =
+          @UniqueConstraint(
+              name = "uk_actividad_etiqueta",
+              columnNames = {"actividad_id", "etiqueta_id"}),
+      indexes = @Index(name = "idx_actividad_etiqueta_etiqueta", columnList = "etiqueta_id"))
   private Set<Etiqueta> etiquetas = new HashSet<>();
 }
 // Restricción de aforo (RF03): Hemos aplicado @org.hibernate.annotations.Check(constraints =

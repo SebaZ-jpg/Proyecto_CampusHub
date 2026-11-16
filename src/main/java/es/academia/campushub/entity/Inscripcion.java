@@ -8,12 +8,12 @@ import lombok.Setter;
 
 @Entity
 @Table(
-        name = "inscripcion",
-        uniqueConstraints =
+    name = "inscripcion",
+    uniqueConstraints =
         @UniqueConstraint(
-                name = "uk_inscripcion_actividad_estudiante",
-                columnNames = {"actividad_id", "estudiante_id"}),
-        indexes = @Index(name = "idx_inscripcion_estudiante", columnList = "estudiante_id"))
+            name = "uk_inscripcion_actividad_estudiante",
+            columnNames = {"actividad_id", "estudiante_id"}),
+    indexes = @Index(name = "idx_inscripcion_estudiante", columnList = "estudiante_id"))
 @Getter
 @Setter
 @NoArgsConstructor

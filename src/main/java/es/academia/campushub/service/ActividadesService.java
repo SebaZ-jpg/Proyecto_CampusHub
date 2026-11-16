@@ -13,6 +13,7 @@ import es.academia.campushub.util.exception.BusinessConflictException;
 import es.academia.campushub.util.exception.InvalidInputException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,16 +41,18 @@ public class ActividadesService {
 
   @Transactional
   public ActividadResponse crearActividad(CreateActividadRequest r) {
-    if (r.titulo() == null || r.titulo().isBlank()) {
-      throw new InvalidInputException("El título es obligatorio");
+    if (r == null) {
+      throw new InvalidInputException("Faltan los datos de la actividad");
     }
-    if (r.descripcion() == null || r.descripcion().isBlank()) {
-      throw new InvalidInputException("La descripción es obligatoria");
+    String titulo = textoObligatorio(r.titulo(), "El título");
+    if (titulo.length() > 150) {
+      throw new InvalidInputException("El título no puede superar los 150 caracteres");
     }
+    String descripcion = textoObligatorio(r.descripcion(), "La descripción");
 
     Actividad.TipoActividad tipoActividad;
     try {
-      tipoActividad = Actividad.TipoActividad.valueOf(r.tipo());
+      tipoActividad = Actividad.TipoActividad.valueOf(r.tipo().trim().toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException | NullPointerException e) {
       throw new InvalidInputException(
               "Tipo de actividad inválido. Debe ser TALLER, CHARLA, VISITA o JORNADA");
@@ -58,13 +61,16 @@ public class ActividadesService {
     if (r.maxParticipantes() == null || r.maxParticipantes() <= 0) {
       throw new InvalidInputException("maxParticipantes debe ser > 0");
     }
+    if (r.docenteId() == null) {
+      throw new InvalidInputException("El docente responsable es obligatorio");
+    }
 
     Docente docente =
             docentes.findById(r.docenteId()).orElseThrow(() -> noExiste("Docente", r.docenteId()));
 
     Actividad actividad = new Actividad();
-    actividad.setTitulo(r.titulo().trim());
-    actividad.setDescripcion(r.descripcion().trim());
+    actividad.setTitulo(titulo);
+    actividad.setDescripcion(descripcion);
     actividad.setTipo(tipoActividad);
     actividad.setFechaPrevista(
             es.academia.campushub.util.Parseo.fecha(r.fechaPrevista(), "fechaPrevista"));
@@ -83,6 +89,10 @@ public class ActividadesService {
   /** Pieza más delicada del proyecto: aforo + duplicados + concurrencia. */
   @Transactional
   public InscripcionResponse inscribir(Long actividadId, CreateInscripcionRequest r) {
+    if (r == null || r.estudianteId() == null) {
+      throw new InvalidInputException("El estudiante es obligatorio");
+    }
+
     // 1. Bloqueo pesimista de la actividad (FOR UPDATE)
     Actividad actividad = actividades.findByIdForUpdate(actividadId)
             .orElseThrow(() -> noExiste("Actividad", actividadId));
@@ -135,10 +145,13 @@ public class ActividadesService {
 
   @Transactional
   public EtiquetaResponse crearEtiqueta(CreateEtiquetaRequest r) {
-    if (r.nombre() == null || r.nombre().isBlank()) {
-      throw new InvalidInputException("El nombre de la etiqueta es obligatorio");
+    if (r == null) {
+      throw new InvalidInputException("Faltan los datos de la etiqueta");
     }
-    String nombreLimpio = r.nombre().trim();
+    String nombreLimpio = textoObligatorio(r.nombre(), "El nombre de la etiqueta");
+    if (nombreLimpio.length() > 50) {
+      throw new InvalidInputException("El nombre de la etiqueta no puede superar 50 caracteres");
+    }
 
     if (etiquetas.existsByNombre(nombreLimpio)) {
       throw new BusinessConflictException("La etiqueta ya existe");
@@ -156,6 +169,8 @@ public class ActividadesService {
     Etiqueta etiqueta = etiquetas.findById(etiquetaId)
             .orElseThrow(() -> noExiste("Etiqueta", etiquetaId));
 
+    // The Set makes this idempotent in the transaction; the database unique constraint
+    // also protects against concurrent association requests.
     actividad.getEtiquetas().add(etiqueta);
   }
 
@@ -189,6 +204,13 @@ public class ActividadesService {
   @SuppressWarnings("unused")
   private ResourceNotFoundException noExiste(String que, Long id) {
     return new ResourceNotFoundException(que + " " + id + " no existe");
+  }
+
+  private String textoObligatorio(String valor, String campo) {
+    if (valor == null || valor.isBlank()) {
+      throw new InvalidInputException(campo + " es obligatorio");
+    }
+    return valor.trim();
   }
 }
 
