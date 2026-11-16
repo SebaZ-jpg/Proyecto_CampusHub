@@ -11,7 +11,9 @@ import lombok.Setter;
 //   ...o un script SQL / trigger. Explicad en el documento qué elegís y por qué
 //   (CURRENT_DATE en un CHECK es "estable", no "inmutable": comentad ese inconveniente).
 @Entity
-@Table(name = "estudiante", indexes = @Index(name = "idx_estudiante_grupo", columnList = "grupo_id"))
+@Table(
+    name = "estudiante",
+    indexes = @Index(name = "idx_estudiante_grupo", columnList = "grupo_id"))
 @Getter
 @Setter
 @NoArgsConstructor

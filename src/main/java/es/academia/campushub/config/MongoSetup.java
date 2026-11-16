@@ -25,24 +25,31 @@ public class MongoSetup implements ApplicationRunner {
 
   @Override
   public void run(ApplicationArguments args) {
+    Document schema =
+        Document.parse(
+            """
+            { "$jsonSchema": {
+                "bsonType": "object",
+                "required": ["actividadId", "creadoEn"],
+                "properties": {
+                  "actividadId": { "bsonType": ["int", "long"] },
+                  "tipo":        { "bsonType": "string", "minLength": 1 },
+                  "datos":       { "bsonType": "object" },
+                  "creadoEn":    { "bsonType": "date" }
+                },
+                "additionalProperties": true
+              } }
+            """);
     if (!mongo.collectionExists(SeguimientoDocument.class)) {
-      // Validación MÍNIMA: obliga campos y tipos pero NO restringe el contenido de "datos".
-      // TODO(C): ¿añadir minLength a tipo? ¿validationLevel / validationAction? Justificadlo.
-      Document schema =
-          Document.parse(
-              """
-              { "$jsonSchema": {
-                  "bsonType": "object",
-                  "required": ["actividadId", "tipo", "creadoEn"],
-                  "properties": {
-                    "actividadId": { "bsonType": ["int", "long"] },
-                    "tipo":        { "bsonType": "string", "minLength": 1 },
-                    "datos":       { "bsonType": "object" },
-                    "creadoEn":    { "bsonType": "date" }
-                  } } }
-              """);
       mongo.createCollection(
-          SeguimientoDocument.class, CollectionOptions.empty().validator(Validator.document(schema)));
+          SeguimientoDocument.class,
+          CollectionOptions.empty().validator(Validator.document(schema)));
+    } else {
+      mongo.executeCommand(
+          new Document("collMod", "seguimientos")
+              .append("validator", schema)
+              .append("validationLevel", "moderate")
+              .append("validationAction", "error"));
     }
     // Consulta típica: "seguimientos de una actividad, en orden cronológico".
     mongo

@@ -13,7 +13,10 @@ import lombok.Setter;
         @UniqueConstraint(
             name = "uk_inscripcion_actividad_estudiante",
             columnNames = {"actividad_id", "estudiante_id"}),
-    indexes = @Index(name = "idx_inscripcion_estudiante", columnList = "estudiante_id"))
+    indexes = {
+      @Index(name = "idx_inscripcion_estudiante", columnList = "estudiante_id"),
+      @Index(name = "idx_inscripcion_actividad", columnList = "actividad_id")
+    })
 @Getter
 @Setter
 @NoArgsConstructor

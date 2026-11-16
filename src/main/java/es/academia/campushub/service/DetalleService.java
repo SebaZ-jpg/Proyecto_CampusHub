@@ -2,6 +2,7 @@ package es.academia.campushub.service;
 
 import es.academia.campushub.controller.dto.*;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,14 +16,13 @@ public class DetalleService {
   private final SeguimientoService seguimientos;
 
   public DetalleService(
-      ActividadesService actividades,
-      PersonasService personas,
-      SeguimientoService seguimientos) {
+      ActividadesService actividades, PersonasService personas, SeguimientoService seguimientos) {
     this.actividades = actividades;
     this.personas = personas;
     this.seguimientos = seguimientos;
   }
 
+  @Cacheable(cacheNames = "actividadDetalle", key = "'actividad:detalle:' + #id")
   public ActividadDetalleResponse detalle(Long id) {
     ActividadResponse actividad = actividades.obtenerActividad(id); // 404 si no existe
     DocenteResponse responsable = personas.obtenerDocente(actividad.docenteId());

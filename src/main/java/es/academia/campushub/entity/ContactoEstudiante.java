@@ -8,7 +8,12 @@ import lombok.Setter;
 
 /** Ficha de contacto: como máximo UNA por estudiante y no puede existir sin él (RF09). */
 @Entity
-@Table(name = "contacto_estudiante")
+@Table(
+    name = "contacto_estudiante",
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uk_contacto_estudiante_estudiante",
+            columnNames = "estudiante_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,7 +25,7 @@ public class ContactoEstudiante {
   // TODO(A): unique = true garantiza "como máximo una ficha por estudiante" en la BD.
   //   ¿Qué pasa si se borra el estudiante? (cascada vs. impedirlo). Razonadlo.
   @OneToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "estudiante_id", nullable = false)
+  @JoinColumn(name = "estudiante_id", nullable = false, unique = true)
   private Estudiante estudiante;
 
   // TODO(A): longitudes máximas; tutorLegal y telefono obligatorios (decidid el resto).

@@ -14,6 +14,7 @@ import es.academia.campushub.util.exception.InvalidInputException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,11 +28,11 @@ public class ActividadesService {
   private final EstudianteRepository estudiantes; // repositorio de A: solo lectura (findById)
 
   public ActividadesService(
-          ActividadRepository actividades,
-          InscripcionRepository inscripciones,
-          EtiquetaRepository etiquetas,
-          DocenteRepository docentes,
-          EstudianteRepository estudiantes) {
+      ActividadRepository actividades,
+      InscripcionRepository inscripciones,
+      EtiquetaRepository etiquetas,
+      DocenteRepository docentes,
+      EstudianteRepository estudiantes) {
     this.actividades = actividades;
     this.inscripciones = inscripciones;
     this.etiquetas = etiquetas;
@@ -55,7 +56,7 @@ public class ActividadesService {
       tipoActividad = Actividad.TipoActividad.valueOf(r.tipo().trim().toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException | NullPointerException e) {
       throw new InvalidInputException(
-              "Tipo de actividad inválido. Debe ser TALLER, CHARLA, VISITA o JORNADA");
+          "Tipo de actividad inválido. Debe ser TALLER, CHARLA, VISITA o JORNADA");
     }
 
     if (r.maxParticipantes() == null || r.maxParticipantes() <= 0) {
@@ -66,14 +67,14 @@ public class ActividadesService {
     }
 
     Docente docente =
-            docentes.findById(r.docenteId()).orElseThrow(() -> noExiste("Docente", r.docenteId()));
+        docentes.findById(r.docenteId()).orElseThrow(() -> noExiste("Docente", r.docenteId()));
 
     Actividad actividad = new Actividad();
     actividad.setTitulo(titulo);
     actividad.setDescripcion(descripcion);
     actividad.setTipo(tipoActividad);
     actividad.setFechaPrevista(
-            es.academia.campushub.util.Parseo.fecha(r.fechaPrevista(), "fechaPrevista"));
+        es.academia.campushub.util.Parseo.fecha(r.fechaPrevista(), "fechaPrevista"));
     actividad.setMaxParticipantes(r.maxParticipantes());
     actividad.setDocente(docente);
 
@@ -87,6 +88,7 @@ public class ActividadesService {
   }
 
   /** Pieza más delicada del proyecto: aforo + duplicados + concurrencia. */
+  @CacheEvict(cacheNames = "actividadDetalle", key = "'actividad:detalle:' + #actividadId")
   @Transactional
   public InscripcionResponse inscribir(Long actividadId, CreateInscripcionRequest r) {
     if (r == null || r.estudianteId() == null) {
@@ -94,11 +96,15 @@ public class ActividadesService {
     }
 
     // 1. Bloqueo pesimista de la actividad (FOR UPDATE)
-    Actividad actividad = actividades.findByIdForUpdate(actividadId)
+    Actividad actividad =
+        actividades
+            .findByIdForUpdate(actividadId)
             .orElseThrow(() -> noExiste("Actividad", actividadId));
 
     // 2. Comprobar que el estudiante existe
-    Estudiante estudiante = estudiantes.findById(r.estudianteId())
+    Estudiante estudiante =
+        estudiantes
+            .findById(r.estudianteId())
             .orElseThrow(() -> noExiste("Estudiante", r.estudianteId()));
 
     // 3. Comprobar si ya está inscrito
@@ -129,8 +135,8 @@ public class ActividadesService {
       throw noExiste("Actividad", actividadId);
     }
     return inscripciones.findByActividadId(actividadId).stream()
-            .map(i -> PersonasMapper.toResponse(i.getEstudiante()))
-            .toList();
+        .map(i -> PersonasMapper.toResponse(i.getEstudiante()))
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -139,8 +145,8 @@ public class ActividadesService {
       throw noExiste("Estudiante", estudianteId);
     }
     return inscripciones.findByEstudianteId(estudianteId).stream()
-            .map(ActividadesMapper::toHistorial)
-            .toList();
+        .map(ActividadesMapper::toHistorial)
+        .toList();
   }
 
   @Transactional
@@ -163,11 +169,14 @@ public class ActividadesService {
   }
 
   @Transactional
+  @CacheEvict(cacheNames = "actividadDetalle", key = "'actividad:detalle:' + #actividadId")
   public void asociarEtiqueta(Long actividadId, Long etiquetaId) {
-    Actividad actividad = actividades.findById(actividadId)
+    Actividad actividad =
+        actividades
+            .findByIdForUpdate(actividadId)
             .orElseThrow(() -> noExiste("Actividad", actividadId));
-    Etiqueta etiqueta = etiquetas.findById(etiquetaId)
-            .orElseThrow(() -> noExiste("Etiqueta", etiquetaId));
+    Etiqueta etiqueta =
+        etiquetas.findById(etiquetaId).orElseThrow(() -> noExiste("Etiqueta", etiquetaId));
 
     // The Set makes this idempotent in the transaction; the database unique constraint
     // also protects against concurrent association requests.
@@ -180,8 +189,8 @@ public class ActividadesService {
       throw noExiste("Etiqueta", etiquetaId);
     }
     return actividades.findByEtiquetasId(etiquetaId).stream()
-            .map(ActividadesMapper::toResponse)
-            .toList();
+        .map(ActividadesMapper::toResponse)
+        .toList();
   }
 
   // ===================== CONTRATO CON LA PERSONA C (no cambiar firmas) =====================
@@ -193,12 +202,10 @@ public class ActividadesService {
 
   @Transactional(readOnly = true)
   public List<EtiquetaResponse> etiquetasDe(Long actividadId) {
-    Actividad actividad = actividades.findById(actividadId)
-            .orElseThrow(() -> noExiste("Actividad", actividadId));
+    Actividad actividad =
+        actividades.findById(actividadId).orElseThrow(() -> noExiste("Actividad", actividadId));
 
-    return actividad.getEtiquetas().stream()
-            .map(ActividadesMapper::toResponse)
-            .toList();
+    return actividad.getEtiquetas().stream().map(ActividadesMapper::toResponse).toList();
   }
 
   @SuppressWarnings("unused")
@@ -214,7 +221,16 @@ public class ActividadesService {
   }
 }
 
-//Decisiones Técnicas - Persona B (Actividades, Inscripciones, Etiquetas)
-//Se han implementado restricciones nativas en PostgreSQL para garantizar la integridad por debajo de la capa Java. En la tabla actividad, se ha añadido un @Check para evitar aforos nulos o negativos, y se ha mapeado el TipoActividad como EnumType.STRING para evitar inconsistencias de texto. La descripción usa columnDefinition = "text" superando el límite de VARCHAR.
-//Para etiqueta, se usa UNIQUE(nombre) evitando duplicados físicos en la relación N:M. En inscripcion, la red de seguridad principal es un UNIQUE(actividad_id, estudiante_id) respaldado por un índice sobre estudiante_id para optimizar el historial.
-//El problema de concurrencia en la inscripción (condición de carrera al comprobar el aforo) se ha resuelto aplicando un bloqueo pesimista en base de datos mediante findByIdForUpdate (ejecuta SELECT ... FOR UPDATE). Esto serializa las transacciones simultáneas para una misma actividad, impidiendo sobrepasar el límite de plazas sin introducir bloqueos globales en la aplicación, y rematando con un saveAndFlush para validar la inserción inmediatamente.
+// Decisiones Técnicas - Persona B (Actividades, Inscripciones, Etiquetas)
+// Se han implementado restricciones nativas en PostgreSQL para garantizar la integridad por debajo
+// de la capa Java. En la tabla actividad, se ha añadido un @Check para evitar aforos nulos o
+// negativos, y se ha mapeado el TipoActividad como EnumType.STRING para evitar inconsistencias de
+// texto. La descripción usa columnDefinition = "text" superando el límite de VARCHAR.
+// Para etiqueta, se usa UNIQUE(nombre) evitando duplicados físicos en la relación N:M. En
+// inscripcion, la red de seguridad principal es un UNIQUE(actividad_id, estudiante_id) respaldado
+// por un índice sobre estudiante_id para optimizar el historial.
+// El problema de concurrencia en la inscripción (condición de carrera al comprobar el aforo) se ha
+// resuelto aplicando un bloqueo pesimista en base de datos mediante findByIdForUpdate (ejecuta
+// SELECT ... FOR UPDATE). Esto serializa las transacciones simultáneas para una misma actividad,
+// impidiendo sobrepasar el límite de plazas sin introducir bloqueos globales en la aplicación, y
+// rematando con un saveAndFlush para validar la inserción inmediatamente.

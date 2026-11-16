@@ -10,8 +10,7 @@ import lombok.Setter;
 
 @org.hibernate.annotations.Check(
     name = "ck_actividad_tipo_y_aforo",
-    constraints =
-        "max_participantes > 0 AND tipo IN ('TALLER', 'CHARLA', 'VISITA', 'JORNADA')")
+    constraints = "max_participantes > 0 AND tipo IN ('TALLER', 'CHARLA', 'VISITA', 'JORNADA')")
 @Entity
 @Table(
     name = "actividad",

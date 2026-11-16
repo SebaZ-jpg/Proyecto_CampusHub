@@ -1,6 +1,8 @@
 package es.academia.campushub.entity;
 
 import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,4 +23,7 @@ public class Departamento {
 
   @Column(nullable = false, length = 100, unique = true)
   private String nombre;
+
+  @OneToMany(mappedBy = "departamento")
+  private Set<Docente> docentes = new HashSet<>();
 }

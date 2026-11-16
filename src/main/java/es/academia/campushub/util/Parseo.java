@@ -4,7 +4,9 @@ import es.academia.campushub.util.exception.InvalidInputException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
-/** Utilidad compartida: convierte textos ISO (YYYY-MM-DD) a fechas y lanza 400 si no son válidos. */
+/**
+ * Utilidad compartida: convierte textos ISO (YYYY-MM-DD) a fechas y lanza 400 si no son válidos.
+ */
 public final class Parseo {
   private Parseo() {}
 

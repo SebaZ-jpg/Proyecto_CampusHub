@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "grupo")
+@Table(name = "grupo", indexes = @Index(name = "idx_grupo_tutor", columnList = "tutor_docente_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,14 +17,15 @@ public class Grupo {
 
   // TODO(A): nombre y nivel obligatorios con longitud máxima.
   //   ¿Debe ser único el nombre del grupo? Decidid y justificadlo (la rúbrica no lo exige).
-  //resulto:
+  // resulto:
   @Column(nullable = false, length = 50)
   private String nombre;
 
   @Column(nullable = false, length = 50)
   private String nivel;
 
-  // TODO(A): decidid si el tutor es obligatorio (la rúbrica dice que cada grupo "dispone de" docente tutor).
+  // TODO(A): decidid si el tutor es obligatorio (la rúbrica dice que cada grupo "dispone de"
+  // docente tutor).
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "tutor_docente_id", nullable = false)
   private Docente tutor;

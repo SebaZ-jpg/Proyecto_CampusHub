@@ -5,7 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * FASE 0 (compartido): esta clase SOLO delega. Nadie la toca después, así se evitan conflictos de Git.
+ * FASE 0 (compartido): esta clase SOLO delega. Nadie la toca después, así se evitan conflictos de
+ * Git.
  *
  * <ul>
  *   <li>Persona A: {@link PersonasService}

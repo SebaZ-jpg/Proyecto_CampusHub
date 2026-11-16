@@ -7,14 +7,14 @@ import es.academia.campushub.repository.*;
 import es.academia.campushub.util.Parseo;
 import es.academia.campushub.util.exception.BusinessConflictException;
 import es.academia.campushub.util.exception.InvalidInputException;
-import es.academia.campushub.util.exception.PersistenciaPendienteException;
 import es.academia.campushub.util.exception.ResourceNotFoundException;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
-/** PERSONA A: departamentos, docentes, grupos, estudiantes y ficha de contacto (RF01, RF02, RF09). */
+/**
+ * PERSONA A: departamentos, docentes, grupos, estudiantes y ficha de contacto (RF01, RF02, RF09).
+ */
 @Service
 public class PersonasService {
   private final DepartamentoRepository departamentos;
@@ -40,6 +40,7 @@ public class PersonasService {
   @Transactional
   public DepartamentoResponse crearDepartamento(CreateDepartamentoRequest r) {
     String nombre = Parseo.texto(r == null ? null : r.nombre(), "nombre"); // 400 si falta
+    validarLongitud(nombre, 100, "nombre");
     if (departamentos.existsByNombre(nombre)) { // mensaje claro (409)...
       throw new BusinessConflictException("Ya existe un departamento con ese nombre");
     }
@@ -69,12 +70,16 @@ public class PersonasService {
     }
     String nombre = Parseo.texto(r.nombre(), "nombre");
     String apellidos = Parseo.texto(r.apellidos(), "apellidos");
-    String email = Parseo.texto(r.email(), "email");
+    String email = validarEmail(r.email());
+    validarLongitud(nombre, 100, "nombre");
+    validarLongitud(apellidos, 100, "apellidos");
     Departamento departamento =
-            departamentos
-                    .findById(r.departamentoId())
-                    .orElseThrow(
-                            () -> new ResourceNotFoundException("Departamento " + r.departamentoId() + " no existe"));
+        departamentos
+            .findById(r.departamentoId())
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "Departamento " + r.departamentoId() + " no existe"));
     if (docentes.existsByEmail(email)) {
       throw new BusinessConflictException("Ya existe un docente con ese correo");
     }
@@ -92,22 +97,24 @@ public class PersonasService {
     // TODO(A) 2. docentes.findById(r.tutorDocenteId()) -> 404 si no existe
     // TODO(A) 3. Guardar y devolver el mapper
     if (r == null || r.tutorDocenteId() == null) {
-      throw new PersistenciaPendienteException("crearGrupo");
-  }
+      throw new InvalidInputException("tutorDocenteId es obligatorio");
+    }
     String nombre = Parseo.texto(r.nombre(), "nombre");
     String nivel = Parseo.texto(r.nivel(), "nivel");
+    validarLongitud(nombre, 50, "nombre");
+    validarLongitud(nivel, 50, "nivel");
     Docente tutor =
-            docentes
-                    .findById(r.tutorDocenteId())
-                    .orElseThrow(
-                            () -> new ResourceNotFoundException("Docente " + r.tutorDocenteId() + " no existe"));
+        docentes
+            .findById(r.tutorDocenteId())
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException("Docente " + r.tutorDocenteId() + " no existe"));
     Grupo g = new Grupo();
     g.setNombre(nombre);
     g.setNivel(nivel);
     g.setTutor(tutor);
     return PersonasMapper.toResponse(grupos.save(g));
   }
-
 
   @Transactional
   public EstudianteResponse crearEstudiante(CreateEstudianteRequest r) {
@@ -121,15 +128,18 @@ public class PersonasService {
     }
     String nombre = Parseo.texto(r.nombre(), "nombre");
     String apellidos = Parseo.texto(r.apellidos(), "apellidos");
-    String email = Parseo.texto(r.email(), "email");
+    String email = validarEmail(r.email());
+    validarLongitud(nombre, 100, "nombre");
+    validarLongitud(apellidos, 150, "apellidos");
     LocalDate nacimiento = Parseo.fecha(r.fechaNacimiento(), "fechaNacimiento");
     if (!nacimiento.isBefore(LocalDate.now())) {
-    throw new PersistenciaPendienteException("crearEstudiante");
+      throw new InvalidInputException("fechaNacimiento debe ser anterior a hoy");
     }
     Grupo grupo =
-            grupos
-                    .findById(r.grupoId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Grupo " + r.grupoId() + " no existe"));
+        grupos
+            .findById(r.grupoId())
+            .orElseThrow(
+                () -> new ResourceNotFoundException("Grupo " + r.grupoId() + " no existe"));
     if (estudiantes.existsByEmail(email)) {
       throw new BusinessConflictException("Ya existe un estudiante con ese correo");
     }
@@ -142,49 +152,55 @@ public class PersonasService {
     return PersonasMapper.toResponse(estudiantes.save(e));
   }
 
-
-
   @Transactional(readOnly = true)
   public EstudianteResponse obtenerEstudiante(Long id) {
     // TODO(A) estudiantes.findById(id) -> 404 si no existe; mapper
     return estudiantes
-            .findById(id)
-            .map(PersonasMapper::toResponse)
-            .orElseThrow(() -> new ResourceNotFoundException("Estudiante " + id + " no existe"));
+        .findById(id)
+        .map(PersonasMapper::toResponse)
+        .orElseThrow(() -> new ResourceNotFoundException("Estudiante " + id + " no existe"));
   }
-    //throw new PersistenciaPendienteException("obtenerEstudiante");
 
+  // throw new PersistenciaPendienteException("obtenerEstudiante");
 
   @Transactional
   public ContactoResponse guardarContacto(Long estudianteId, UpsertContactoRequest r) {
     // TODO(A) 1. estudiantes.findById(estudianteId) -> 404 si no existe
-    // TODO(A) 2. contactos.findByEstudianteId(...) -> si existe se ACTUALIZA, si no se crea (upsert)
+    // TODO(A) 2. contactos.findByEstudianteId(...) -> si existe se ACTUALIZA, si no se crea
+    // (upsert)
     // TODO(A) 3. Validar tutorLegal/telefono y Parseo.fechaOpcional(r.fechaAutorizacion(), ...)
     // TODO(A) 4. Guardar y devolver el mapper (nunca debe quedar una segunda ficha)
-    //throw new PersistenciaPendienteException("guardarContacto");
+    // throw new PersistenciaPendienteException("guardarContacto");
     if (r == null) {
       throw new InvalidInputException("Cuerpo obligatorio");
     }
     Estudiante estudiante =
-            estudiantes
-                    .findById(estudianteId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Estudiante " + estudianteId + " no existe"));
+        estudiantes
+            .findById(estudianteId)
+            .orElseThrow(
+                () -> new ResourceNotFoundException("Estudiante " + estudianteId + " no existe"));
     String tutor = Parseo.texto(r.tutorLegal(), "tutorLegal");
     String telefono = Parseo.texto(r.telefono(), "telefono");
+    validarLongitud(tutor, 150, "tutorLegal");
+    validarLongitud(telefono, 20, "telefono");
+    if (r.autorizado() == null) {
+      throw new InvalidInputException("autorizado es obligatorio");
+    }
+    String email = r.email() == null || r.email().isBlank() ? null : validarEmail(r.email());
     LocalDate fechaAutorizacion = Parseo.fechaOpcional(r.fechaAutorizacion(), "fechaAutorizacion");
     ContactoEstudiante c =
-            contactos
-                    .findByEstudianteId(estudianteId)
-                    .orElseGet(
-                            () -> {
-                              ContactoEstudiante nuevo = new ContactoEstudiante();
-                              nuevo.setEstudiante(estudiante);
-                              return nuevo;
-                            });
+        contactos
+            .findByEstudianteId(estudianteId)
+            .orElseGet(
+                () -> {
+                  ContactoEstudiante nuevo = new ContactoEstudiante();
+                  nuevo.setEstudiante(estudiante);
+                  return nuevo;
+                });
     c.setTutorLegal(tutor);
     c.setTelefono(telefono);
-    c.setEmail(r.email());
-    c.setAutorizado(Boolean.TRUE.equals(r.autorizado()));
+    c.setEmail(email);
+    c.setAutorizado(r.autorizado());
     c.setFechaAutorizacion(fechaAutorizacion);
     return PersonasMapper.toResponse(contactos.save(c));
   }
@@ -196,9 +212,26 @@ public class PersonasService {
       throw new ResourceNotFoundException("Estudiante " + estudianteId + " no existe");
     }
     return contactos
-            .findByEstudianteId(estudianteId)
-            .map(PersonasMapper::toResponse)
-            .orElseThrow(
-                    () -> new ResourceNotFoundException("El estudiante " + estudianteId + " no tiene ficha"));
+        .findByEstudianteId(estudianteId)
+        .map(PersonasMapper::toResponse)
+        .orElseThrow(
+            () ->
+                new ResourceNotFoundException("El estudiante " + estudianteId + " no tiene ficha"));
+  }
+
+  private void validarLongitud(String valor, int maximo, String campo) {
+    if (valor.length() > maximo) {
+      throw new InvalidInputException(campo + " no puede superar " + maximo + " caracteres");
+    }
+  }
+
+  private String validarEmail(String valor) {
+    String email = Parseo.texto(valor, "email");
+    validarLongitud(email, 254, "email");
+    int arroba = email.indexOf('@');
+    if (arroba <= 0 || arroba != email.lastIndexOf('@') || arroba == email.length() - 1) {
+      throw new InvalidInputException("email no es válido");
+    }
+    return email;
   }
 }
