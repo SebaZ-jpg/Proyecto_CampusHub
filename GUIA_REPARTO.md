@@ -30,7 +30,7 @@ Cada persona trabaja en **sus propios ficheros**, así no hay conflictos de Git.
 4. Antes de cada commit: `mvn spotless:apply` (si no, `mvn verify` falla por formato).
 5. Con `ddl-auto: update`, las restricciones nuevas **solo se aplican al crear la tabla**. Si
    cambiáis una entidad y no veis el efecto en `psql`, reiniciad la base:
-   `docker compose down -v` y volved a arrancar. (Los tests usan `create-drop` y no tienen este problema.)
+   `docker compose down -v`(solo usarlo con datos descartables) y volved a arrancar. (Los tests usan `create-drop` y no tienen este problema.)
 
 ## Contrato entre personas (no cambiar las firmas)
 
