@@ -5,6 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Entidad JPA de una etiqueta reutilizable por varias actividades. El nombre es obligatorio y
+ * único en PostgreSQL.
+ */
+
 @Entity
 @Table(
     name = "etiqueta",

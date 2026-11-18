@@ -6,6 +6,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Entidad JPA que materializa la relación muchos-a-muchos entre estudiantes y actividades. Incluye
+ * fecha de inscripción y una restricción única que impide duplicados.
+ */
+
 @Entity
 @Table(
     name = "inscripcion",

@@ -22,13 +22,13 @@ public class ContactoEstudiante {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  // TODO(A): unique = true garantiza "como máximo una ficha por estudiante" en la BD.
+  // unique = true garantiza "como máximo una ficha por estudiante" en la BD.
   //   ¿Qué pasa si se borra el estudiante? (cascada vs. impedirlo). Razonadlo.
   @OneToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "estudiante_id", nullable = false, unique = true)
   private Estudiante estudiante;
 
-  // TODO(A): longitudes máximas; tutorLegal y telefono obligatorios (decidid el resto).
+  // longitudes máximas; tutorLegal y telefono obligatorios (decidid el resto).
   @Column(name = "tutor_legal", nullable = false, length = 150)
   private String tutorLegal;
 

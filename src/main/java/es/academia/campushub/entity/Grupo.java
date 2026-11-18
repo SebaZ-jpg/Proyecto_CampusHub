@@ -5,6 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Entidad JPA del grupo educativo. Cada grupo tiene nombre, nivel y una referencia obligatoria al
+ * docente tutor.
+ */
+
 @Entity
 @Table(name = "grupo", indexes = @Index(name = "idx_grupo_tutor", columnList = "tutor_docente_id"))
 @Getter

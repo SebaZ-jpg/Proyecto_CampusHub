@@ -6,10 +6,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// TODO(A): para el CHECK de la fecha de nacimiento, podéis usar la anotación de Hibernate:
-//   @org.hibernate.annotations.Check(constraints = "fecha_nacimiento < CURRENT_DATE")
-//   ...o un script SQL / trigger. Explicad en el documento qué elegís y por qué
-//   (CURRENT_DATE en un CHECK es "estable", no "inmutable": comentad ese inconveniente).
+/**
+ * Entidad JPA del estudiante. Su grupo es obligatorio; el correo es único y los índices ayudan a
+ * consultar estudiantes por grupo.
+ */
 @Entity
 @Table(
     name = "estudiante",

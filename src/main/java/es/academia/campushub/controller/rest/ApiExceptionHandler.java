@@ -17,11 +17,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
   @ExceptionHandler(PersistenciaPendienteException.class)
+  // Compatibilidad con los stubs del proyecto inicial; no es una respuesta esperada en el flujo final.
   public ResponseEntity<Map<String, Object>> pending(PersistenciaPendienteException ex) {
     return response(HttpStatus.NOT_IMPLEMENTED, "NOT_IMPLEMENTED", ex.getMessage());
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
+  // Traduce UNIQUE, NOT NULL, CHECK y FK incumplidas a un conflicto sin filtrar detalles SQL.
   public ResponseEntity<Map<String, Object>> integrity(DataIntegrityViolationException ex) {
     // No devolver SQL ni detalles internos al cliente.
     return response(HttpStatus.CONFLICT, "DATA_INTEGRITY", "Restricción de integridad incumplida");
@@ -49,6 +51,7 @@ public class ApiExceptionHandler {
 
   private ResponseEntity<Map<String, Object>> response(
       HttpStatus status, String code, String message) {
+      // El cuerpo común facilita al cliente interpretar el error sin conocer excepciones Java.
     return ResponseEntity.status(status)
         .body(Map.of("code", code, "message", message, "timestamp", Instant.now().toString()));
   }

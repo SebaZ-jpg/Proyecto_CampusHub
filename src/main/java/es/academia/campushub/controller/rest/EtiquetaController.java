@@ -17,17 +17,20 @@ public class EtiquetaController {
     this.service = service;
   }
 
+    // Crea una etiqueta reutilizable; la base de datos impide duplicar su nombre.
   @PostMapping("/api/etiquetas")
   public ResponseEntity<EtiquetaResponse> crear(@RequestBody CreateEtiquetaRequest r) {
     return ResponseEntity.status(HttpStatus.CREATED).body(service.crearEtiqueta(r));
   }
 
+    // PUT es idempotente: repetir la asociación no debe crear otra fila en la tabla intermedia.
   @PutMapping("/api/actividades/{id}/etiquetas/{etiquetaId}")
   public ResponseEntity<Void> asociar(@PathVariable Long id, @PathVariable Long etiquetaId) {
     service.asociarEtiqueta(id, etiquetaId);
     return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
   }
 
+    // Busca actividades asociadas a la etiqueta indicada.
   @GetMapping("/api/etiquetas/{id}/actividades")
   public List<ActividadResponse> actividades(@PathVariable Long id) {
     return service.actividadesPorEtiqueta(id);

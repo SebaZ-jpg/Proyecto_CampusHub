@@ -3,6 +3,11 @@ package es.academia.campushub.service;
 import es.academia.campushub.controller.dto.*;
 import java.util.List;
 
+/**
+ * Contrato de los casos de uso de CampusHub. Los controladores dependen de esta interfaz para no
+ * acoplar HTTP a las implementaciones concretas.
+ */
+
 public interface CampusHubService {
   GrupoResponse crearGrupo(CreateGrupoRequest request);
 

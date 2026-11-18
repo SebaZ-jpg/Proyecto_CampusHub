@@ -5,15 +5,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * FASE 0 (compartido): esta clase SOLO delega. Nadie la toca después, así se evitan conflictos de
- * Git.
- *
- * <ul>
- *   <li>Persona A: {@link PersonasService}
- *   <li>Persona B: {@link ActividadesService}
- *   <li>Persona C: {@link SeguimientoService} y {@link DetalleService}
- * </ul>
+ * Implementación fachada de CampusHubService. Distribuye cada operación entre los servicios de
+ * personas, actividades, seguimientos y detalle.
  */
+
 @Service
 public class CampusHubServiceImpl implements CampusHubService {
   private final PersonasService personas;
@@ -32,7 +27,6 @@ public class CampusHubServiceImpl implements CampusHubService {
     this.detalle = detalle;
   }
 
-  // ---- Persona A ----
   @Override
   public GrupoResponse crearGrupo(CreateGrupoRequest request) {
     return personas.crearGrupo(request);
@@ -68,7 +62,6 @@ public class CampusHubServiceImpl implements CampusHubService {
     return personas.contacto(estudianteId);
   }
 
-  // ---- Persona B ----
   @Override
   public ActividadResponse crearActividad(CreateActividadRequest request) {
     return actividades.crearActividad(request);
@@ -109,7 +102,6 @@ public class CampusHubServiceImpl implements CampusHubService {
     return actividades.actividadesPorEtiqueta(etiquetaId);
   }
 
-  // ---- Persona C ----
   @Override
   public SeguimientoResponse registrarSeguimiento(
       Long actividadId, CreateSeguimientoRequest request) {

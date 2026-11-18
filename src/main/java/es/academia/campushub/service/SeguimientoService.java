@@ -12,7 +12,11 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** PERSONA C: seguimientos de actividades en MongoDB (RF05). */
+/**
+ * Casos de uso para guardar y recuperar seguimientos en MongoDB. Comprueba primero la actividad en
+ * PostgreSQL; el vínculo entre ambos motores es lógico, no una clave foránea.
+ */
+
 @Service
 public class SeguimientoService {
   private final SeguimientoRepository seguimientos;
@@ -26,6 +30,7 @@ public class SeguimientoService {
   @CacheEvict(cacheNames = "actividadDetalle", key = "'actividad:detalle:' + #actividadId")
   @Transactional
   public SeguimientoResponse registrarSeguimiento(Long actividadId, CreateSeguimientoRequest r) {
+      // Validar la actividad evita crear referencias huérfanas en el flujo normal de la API.
     if (!actividades.existsById(actividadId)) {
       throw new ResourceNotFoundException("Actividad " + actividadId + " no existe");
     }
@@ -44,7 +49,7 @@ public class SeguimientoService {
     return SeguimientoMapper.toResponse(seguimientos.save(document));
   }
 
-  /** Lista vacía (nunca null) si la actividad no tiene seguimientos. Ya está hecho. */
+    /** Devuelve los seguimientos en orden de creación; una consulta sin resultados produce lista vacía. */
   public List<SeguimientoResponse> seguimientosDe(Long actividadId) {
     return seguimientos.findByActividadIdOrderByCreadoEnAsc(actividadId).stream()
         .map(SeguimientoMapper::toResponse)

@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * PERSONA A: departamentos, docentes, grupos, estudiantes y ficha de contacto (RF01, RF02, RF09).
+ * Casos de uso de departamentos, docentes, grupos, estudiantes y contactos. Valida entradas,
+ * verifica referencias, delega persistencia en repositorios y convierte entidades en respuestas.
  */
+
 @Service
 public class PersonasService {
   private final DepartamentoRepository departamentos;
@@ -36,7 +38,7 @@ public class PersonasService {
     this.contactos = contactos;
   }
 
-  /** EJEMPLO COMPLETO: copiad este patrón (validar -> comprobar 404/409 -> guardar -> mapper). */
+  /** copia este patrón (validar -> comprobar 404/409 -> guardar -> mapper). */
   @Transactional
   public DepartamentoResponse crearDepartamento(CreateDepartamentoRequest r) {
     String nombre = Parseo.texto(r == null ? null : r.nombre(), "nombre"); // 400 si falta
@@ -61,10 +63,11 @@ public class PersonasService {
 
   @Transactional
   public DocenteResponse crearDocente(CreateDocenteRequest r) {
-    // TODO(A) 1. Validar nombre, apellidos, email (Parseo.texto) -> 400
-    // TODO(A) 2. departamentos.findById(r.departamentoId()) -> 404 si no existe
-    // TODO(A) 3. docentes.existsByEmail(email) -> 409
-    // TODO(A) 4. Crear Docente, guardar y devolver PersonasMapper.toResponse(...)
+
+    // Validar nombre, apellidos, email (Parseo.texto) -> 400
+    // departamentos.findById(r.departamentoId()) -> 404 si no existe
+    // docentes.existsByEmail(email) -> 409
+    // Crear Docente, guardar y devolver PersonasMapper.toResponse(...)
     if (r == null || r.departamentoId() == null) {
       throw new InvalidInputException("departamentoId es obligatorio");
     }
@@ -93,9 +96,11 @@ public class PersonasService {
 
   @Transactional
   public GrupoResponse crearGrupo(CreateGrupoRequest r) {
-    // TODO(A) 1. Validar nombre y nivel -> 400
-    // TODO(A) 2. docentes.findById(r.tutorDocenteId()) -> 404 si no existe
-    // TODO(A) 3. Guardar y devolver el mapper
+
+    // Validar nombre y nivel -> 400
+    // docentes.findById(r.tutorDocenteId()) -> 404 si no existe
+    // Guardar y devolver el mapper
+    // El tutor debe existir antes de crear el grupo para no guardar referencias inválidas.
     if (r == null || r.tutorDocenteId() == null) {
       throw new InvalidInputException("tutorDocenteId es obligatorio");
     }
@@ -118,11 +123,14 @@ public class PersonasService {
 
   @Transactional
   public EstudianteResponse crearEstudiante(CreateEstudianteRequest r) {
-    // TODO(A) 1. Validar campos; fecha con Parseo.fecha(r.fechaNacimiento(), "fechaNacimiento")
-    // TODO(A) 2. Fecha de nacimiento anterior a hoy -> 400 (y CHECK en la BD)
-    // TODO(A) 3. grupos.findById(r.grupoId()) -> 404 si no existe
-    // TODO(A) 4. estudiantes.existsByEmail(email) -> 409
-    // TODO(A) 5. Guardar y devolver el mapper
+    // Validar campos; fecha con Parseo.fecha(r.fechaNacimiento(), "fechaNacimiento")
+    // Fecha de nacimiento anterior a hoy -> 400 (y CHECK en la BD)
+    // grupos.findById(r.grupoId()) -> 404 si no existe
+    // estudiantes.existsByEmail(email) -> 409
+    // Guardar y devolver el mapper
+
+    // La fecha se valida aquí para dar un error legible; el trigger de PostgreSQL repite
+    // la regla en la base de datos para proteger también escrituras que no pasen por esta API.
     if (r == null || r.grupoId() == null) {
       throw new InvalidInputException("grupoId es obligatorio");
     }
@@ -154,7 +162,7 @@ public class PersonasService {
 
   @Transactional(readOnly = true)
   public EstudianteResponse obtenerEstudiante(Long id) {
-    // TODO(A) estudiantes.findById(id) -> 404 si no existe; mapper
+   // Optional.map transforma el resultado; si no existe, se responde 404 mediante la excepción.
     return estudiantes
         .findById(id)
         .map(PersonasMapper::toResponse)
@@ -165,11 +173,11 @@ public class PersonasService {
 
   @Transactional
   public ContactoResponse guardarContacto(Long estudianteId, UpsertContactoRequest r) {
-    // TODO(A) 1. estudiantes.findById(estudianteId) -> 404 si no existe
-    // TODO(A) 2. contactos.findByEstudianteId(...) -> si existe se ACTUALIZA, si no se crea
+    // estudiantes.findById(estudianteId) -> 404 si no existe
+    // contactos.findByEstudianteId(...) -> si existe se ACTUALIZA, si no se crea
     // (upsert)
-    // TODO(A) 3. Validar tutorLegal/telefono y Parseo.fechaOpcional(r.fechaAutorizacion(), ...)
-    // TODO(A) 4. Guardar y devolver el mapper (nunca debe quedar una segunda ficha)
+    // Validar tutorLegal/telefono y Parseo.fechaOpcional(r.fechaAutorizacion(), ...)
+    // Guardar y devolver el mapper (nunca debe quedar una segunda ficha)
     // throw new PersistenciaPendienteException("guardarContacto");
     if (r == null) {
       throw new InvalidInputException("Cuerpo obligatorio");
@@ -188,6 +196,7 @@ public class PersonasService {
     }
     String email = r.email() == null || r.email().isBlank() ? null : validarEmail(r.email());
     LocalDate fechaAutorizacion = Parseo.fechaOpcional(r.fechaAutorizacion(), "fechaAutorizacion");
+      // La restricción UNIQUE de estudiante_id es la garantía final de una sola ficha por alumno.
     ContactoEstudiante c =
         contactos
             .findByEstudianteId(estudianteId)
@@ -207,7 +216,7 @@ public class PersonasService {
 
   @Transactional(readOnly = true)
   public ContactoResponse contacto(Long estudianteId) {
-    // TODO(A) 404 si el estudiante no existe O si no tiene ficha
+   // Se distinguen los dos casos de ausencia para devolver un mensaje 404 comprensible.
     if (!estudiantes.existsById(estudianteId)) {
       throw new ResourceNotFoundException("Estudiante " + estudianteId + " no existe");
     }

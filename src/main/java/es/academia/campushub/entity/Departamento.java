@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * EJEMPLO COMPLETO (Persona A): fijaos en cómo cada regla de la rúbrica se expresa en la propia
  * columna (NOT NULL, longitud máxima, UNIQUE) y no solo en el código Java. Copiad este patrón.
  */
 @Entity

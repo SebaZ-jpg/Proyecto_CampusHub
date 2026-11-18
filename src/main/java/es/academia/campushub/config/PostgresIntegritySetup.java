@@ -5,6 +5,10 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * Inicialización de la regla de fecha de nacimiento en PostgreSQL. Crea una función y un trigger
+ * para rechazar fechas de nacimiento de hoy o futuras.
+ */
 @Component
 public class PostgresIntegritySetup implements ApplicationRunner {
   private final JdbcTemplate jdbc;
@@ -15,6 +19,8 @@ public class PostgresIntegritySetup implements ApplicationRunner {
 
   @Override
   public void run(ApplicationArguments args) {
+      // PostgreSQL no permite usar CURRENT_DATE en un CHECK estable; el trigger evalúa la fecha
+      // actual en cada inserción o cambio de fecha_nacimiento.
     jdbc.execute(
         """
         CREATE OR REPLACE FUNCTION campushub_validate_estudiante_fecha_nacimiento()
@@ -29,6 +35,7 @@ public class PostgresIntegritySetup implements ApplicationRunner {
         $$ LANGUAGE plpgsql
         """);
     jdbc.execute("DROP TRIGGER IF EXISTS trg_estudiante_fecha_nacimiento ON estudiante");
+      // Recrearlo hace que la función de validación vigente quede asociada a la tabla.
     jdbc.execute(
         """
         CREATE TRIGGER trg_estudiante_fecha_nacimiento

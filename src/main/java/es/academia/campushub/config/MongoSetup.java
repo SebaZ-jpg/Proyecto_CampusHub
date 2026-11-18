@@ -12,7 +12,7 @@ import org.springframework.data.mongodb.core.validation.Validator;
 import org.springframework.stereotype.Component;
 
 /**
- * PERSONA C: crea al arrancar la colección con validación mínima ($jsonSchema) y sus índices.
+ * crea al arrancar la colección con validación mínima ($jsonSchema) y sus índices.
  * Spring Data NO crea los índices por defecto, por eso se hace aquí de forma explícita.
  */
 @Component
@@ -25,6 +25,8 @@ public class MongoSetup implements ApplicationRunner {
 
   @Override
   public void run(ApplicationArguments args) {
+      // Esquema deliberadamente flexible: valida los campos base y permite que datos incluya
+      // propiedades distintas para talleres, visitas, charlas y futuros tipos de seguimiento.
     Document schema =
         Document.parse(
             """
@@ -41,10 +43,12 @@ public class MongoSetup implements ApplicationRunner {
               } }
             """);
     if (!mongo.collectionExists(SeguimientoDocument.class)) {
+        // Primera ejecución: crea la colección con validador desde el inicio.
       mongo.createCollection(
           SeguimientoDocument.class,
           CollectionOptions.empty().validator(Validator.document(schema)));
     } else {
+        // Reinicios: modifica la validación sin eliminar documentos existentes.
       mongo.executeCommand(
           new Document("collMod", "seguimientos")
               .append("validator", schema)

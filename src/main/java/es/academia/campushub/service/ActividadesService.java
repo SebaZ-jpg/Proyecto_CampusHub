@@ -18,14 +18,19 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** PERSONA B: actividades, inscripciones, historial y etiquetas (RF03, RF04, RF08, RF10). */
+/**
+ * Casos de uso de actividades, inscripciones, etiquetas y consultas relacionadas. La inscripción
+ * se protege con bloqueo transaccional de la fila de actividad para coordinar solicitudes
+ * concurrentes.
+ */
+
 @Service
 public class ActividadesService {
   private final ActividadRepository actividades;
   private final InscripcionRepository inscripciones;
   private final EtiquetaRepository etiquetas;
-  private final DocenteRepository docentes; // repositorio de A: solo lectura (findById)
-  private final EstudianteRepository estudiantes; // repositorio de A: solo lectura (findById)
+  private final DocenteRepository docentes; // solo lectura (findById)
+  private final EstudianteRepository estudiantes; // solo lectura (findById)
 
   public ActividadesService(
       ActividadRepository actividades,
@@ -178,8 +183,8 @@ public class ActividadesService {
     Etiqueta etiqueta =
         etiquetas.findById(etiquetaId).orElseThrow(() -> noExiste("Etiqueta", etiquetaId));
 
-    // The Set makes this idempotent in the transaction; the database unique constraint
-    // also protects against concurrent association requests.
+    // Set evita añadir dos veces la misma etiqueta en esta sesión; UNIQUE en la tabla intermedia
+      // protege también frente a solicitudes simultáneas.
     actividad.getEtiquetas().add(etiqueta);
   }
 
@@ -193,9 +198,7 @@ public class ActividadesService {
         .toList();
   }
 
-  // ===================== CONTRATO CON LA PERSONA C (no cambiar firmas) =====================
-
-  @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
   public int plazasOcupadas(Long actividadId) {
     return (int) inscripciones.countByActividadId(actividadId);
   }
@@ -221,7 +224,6 @@ public class ActividadesService {
   }
 }
 
-// Decisiones Técnicas - Persona B (Actividades, Inscripciones, Etiquetas)
 // Se han implementado restricciones nativas en PostgreSQL para garantizar la integridad por debajo
 // de la capa Java. En la tabla actividad, se ha añadido un @Check para evitar aforos nulos o
 // negativos, y se ha mapeado el TipoActividad como EnumType.STRING para evitar inconsistencias de

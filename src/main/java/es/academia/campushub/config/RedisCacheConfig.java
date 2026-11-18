@@ -16,6 +16,11 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
+/**
+ * Configuración de la caché Redis: TTL, serialización y política de errores. Los fallos de caché
+ * se registran para que la caché no sea la fuente de verdad.
+ */
+
 @Configuration
 @EnableCaching
 public class RedisCacheConfig implements CachingConfigurer {
@@ -29,6 +34,7 @@ public class RedisCacheConfig implements CachingConfigurer {
   @Bean
   @Override
   public CacheManager cacheManager() {
+      // El detalle se considera temporal y caduca solo tras diez minutos incluso si no hay cambios.
     RedisCacheConfiguration configuration =
         RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(Duration.ofMinutes(10))
@@ -44,6 +50,8 @@ public class RedisCacheConfig implements CachingConfigurer {
 
   @Override
   public CacheErrorHandler errorHandler() {
+      // Los errores de caché se registran y no se propagan como fallos de negocio: PostgreSQL y
+      // MongoDB siguen siendo las fuentes persistentes de los datos.
     return new CacheErrorHandler() {
       @Override
       public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
