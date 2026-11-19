@@ -109,12 +109,6 @@ Los alumnos deben lanzar las excepciones correctas desde sus casos de uso y gara
 Una excepción de integridad no debería exponer SQL interno. No todas las violaciones son conflictos:
 los alumnos podrán necesitar diferenciar errores según la operación.
 
-## Persistencia en desarrollo
-
-`spring.jpa.hibernate.ddl-auto=update` facilita empezar con JPA. Para las restricciones que
-JPA no represente adecuadamente se pueden aplicar scripts SQL. **No se entregan scripts de solución.**
-En un entorno de producción convendría versionar el esquema con Flyway o Liquibase.
-
 ## Limitación importante
 
 Estos ficheros proporcionan el contrato y la estructura, no una solución de referencia.
